@@ -1,0 +1,40 @@
+name: Compare elaborated declarations
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install pinned elan
+        run: |
+          curl -L --fail https://github.com/leanprover/elan/releases/download/v4.2.3/elan-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/elan.tar.gz"
+          echo "df0b2b3a439961ffcbb3985214365ffe40f49bc871df04dff268c7d8e21ca8b2  $RUNNER_TEMP/elan.tar.gz" | sha256sum --check
+          mkdir "$RUNNER_TEMP/elan"
+          tar -xzf "$RUNNER_TEMP/elan.tar.gz" -C "$RUNNER_TEMP/elan"
+          "$RUNNER_TEMP/elan/elan-init" -y --no-modify-path --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Build isolated modules
+        run: |
+          lake exe cache get $(find Flypitch4 -name '*.lean') Challenge.lean
+          lake build Challenge Solution > build.log 2>&1
+      - name: Dump declaration environments
+        run: |
+          mkdir -p diagnostics-output
+          for target in Challenge Solution; do
+            printf 'module\nimport %s\nimport Lean\n' "$target" > Dump.lean
+            cat diagnostics/declaration-body.txt >> Dump.lean
+            lake env lean Dump.lean > "diagnostics-output/$target.txt" 2>&1
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: declaration-diagnostics
+          path: |
+            diagnostics-output/
+            build.log

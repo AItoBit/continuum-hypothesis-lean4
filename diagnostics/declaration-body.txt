@@ -1,0 +1,35 @@
+set_option pp.all true
+set_option pp.proofs true
+set_option pp.universes true
+
+#print is_func'_f₂
+#print is_total'_f₂
+#print is_func_f
+#print Fol.bounded_preformula.cast
+
+open Lean Elab Command in
+run_cmd do
+  let env ← getEnv
+  let names : List Name :=
+    [``is_func'_f₂, ``is_total'_f₂, ``is_func_f, ``at_most_f,
+     ``Fol.bounded_preformula.cast, ``Fol.bd_and, ``Fol.bounded_formula, ``L_ZFC]
+  for n in names do
+    let some info := env.find? n
+      | throwError "Missing diagnostic declaration {n}"
+    logInfo m!"BEGIN_DECL {n}"
+    logInfo m!"LEVEL_PARAMS {reprStr info.levelParams}"
+    logInfo m!"TYPE_RAW {reprStr info.type}"
+    match info with
+    | .defnInfo v =>
+      let hints := match v.hints with
+        | .opaque => "opaque"
+        | .abbrev => "abbrev"
+        | .regular height => s!"regular {height.toNat}"
+      logInfo m!"HINTS {hints}"
+      logInfo m!"SAFETY {reprStr v.safety}"
+      logInfo m!"MUTUAL_NAMES {reprStr v.all}"
+      logInfo m!"VALUE_RAW {reprStr v.value}"
+      logInfo m!"VALUE_CONSTS {reprStr v.value.getUsedConstants}"
+    | _ =>
+      logInfo "NOT_A_DEFINITION"
+    logInfo m!"END_DECL {n}"

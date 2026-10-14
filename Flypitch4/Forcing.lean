@@ -192,14 +192,14 @@ lemma bot_eq_empty : (⊥ : 𝔹) = ⟨∅, isRegularOpen_empty⟩ := by
 
 -- Type equality lemmas for cast operations
 -- These hold because check x has .type = x.Type by the definition of check
-private lemma eq₀ : (check (PSet.pSet_aleph2) : bSet 𝔹).type = PSet.pSet_aleph2.Type :=
+lemma eq₀ : (check (PSet.pSet_aleph2) : bSet 𝔹).type = PSet.pSet_aleph2.Type :=
   check_type'
 
-private lemma eq₁ :
+lemma eq₁ :
     ((check (PSet.pSet_aleph2) : bSet 𝔹).type × ℕ) = (PSet.pSet_aleph2.Type × ℕ) :=
   congr_arg (· × ℕ) eq₀
 
-private lemma eq₂ :
+lemma eq₂ :
     Set ((check (PSet.pSet_aleph2) : bSet 𝔹).type × ℕ) = Set (PSet.pSet_aleph2.Type × ℕ) :=
   congr_arg Set eq₁
 
@@ -291,7 +291,7 @@ structure 𝒞 : Type where
 @[reducible] def π₂ : (check (PSet.pSet_aleph2) : bSet 𝔹).type × ℕ → ℕ := fun x => x.2
 
 -- src/forcing.lean:223-245: ι definition
-private noncomputable def ι : 𝒞 → 𝔹 :=
+noncomputable def ι : 𝒞 → 𝔹 :=
   fun p => ⟨{S | (p.ins : Set _) ⊆ (cast eq₂.symm S) ∧
                   (p.out : Set _) ⊆ (cast eq₂.symm Sᶜ)},
     isRegularOpen_of_isClopen (by

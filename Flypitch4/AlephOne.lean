@@ -1222,7 +1222,7 @@ lemma a1'_AE {Γ : 𝔹} : Γ ≤ ⨅ z, z ∈ᴮ a1' ⟹
 
 -- src/aleph_one.lean:597: the predicate: a1_ψ v x holds when x is an ordinal injecting into ω
 -- with induced epsilon relation on ω equal to v, and v ≠ ∅
-private def a1_ψ {𝔹 : Type u} [NontrivialCompleteBooleanAlgebra 𝔹] (v x : bSet 𝔹) : 𝔹 :=
+def a1_ψ {𝔹 : Type u} [NontrivialCompleteBooleanAlgebra 𝔹] (v x : bSet 𝔹) : 𝔹 :=
   Ord x ⊓ (⨆ f, is_injective_function x omega f ⊓
     image (mem_rel x) (prod omega omega) (prod_map_self x omega f) =ᴮ v) ⊓ (v =ᴮ ∅)ᶜ
 
@@ -1253,7 +1253,7 @@ private lemma B_ext_a1_ψ {𝔹 : Type u} [NontrivialCompleteBooleanAlgebra 𝔹
 -- src/aleph_one.lean:620
 -- a1_func χ: the ordinal x such that a1_ψ (a1'.func χ) x holds
 noncomputable def a1_func (χ : (a1' (𝔹 := 𝔹)).type) : bSet 𝔹 :=
-  (AE_convert' (a1_ψ (𝔹 := 𝔹)) (fun v => B_ext_a1_ψ) a1' ((a1' (𝔹 := 𝔹)).func χ)).choose
+  (AE_convert' (a1_ψ (𝔹 := 𝔹)) (fun v => by exact B_ext_a1_ψ) a1' ((a1' (𝔹 := 𝔹)).func χ)).choose
 
 -- Convert a1'_AE to the form needed by AE_convert'
 private lemma a1'_AE_psi {𝔹 : Type u} [NontrivialCompleteBooleanAlgebra 𝔹] {Γ : 𝔹} :

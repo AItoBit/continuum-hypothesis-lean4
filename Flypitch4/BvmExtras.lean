@@ -3814,7 +3814,8 @@ private lemma function_eval_exists {x y f : bSet 𝔹} {Γ : 𝔹}
 -- src/bvm_extras.lean:1906
 noncomputable def function_eval {x y f : bSet 𝔹} {Γ : 𝔹} (H_func : Γ ≤ is_function x y f)
     (z : bSet 𝔹) (H_mem : Γ ≤ z ∈ᴮ x) : bSet 𝔹 :=
-  (function_eval_exists H_func z H_mem).choose
+  (show ∃ w, Γ ≤ w ∈ᴮ y ⊓ pair z w ∈ᴮ f from by
+    exact function_eval_exists H_func z H_mem).choose
 
 -- src/bvm_extras.lean:1914
 lemma function_eval_spec {x y f : bSet 𝔹} {Γ : 𝔹} {H_func : Γ ≤ is_function x y f}

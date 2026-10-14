@@ -236,8 +236,8 @@ end bounded_preterm
 @[simp] def lift_bounded_term_at {n} : ∀ {l} (t : bounded_preterm L n l) (n' m : ℕ),
     bounded_preterm L (n + n') l
   | _, bd_var k, n', m =>
-      if m ≤ k.1 then bd_var ⟨k.1 + n', by omega⟩
-      else bd_var ⟨k.1, by omega⟩
+      if m ≤ k.1 then bd_var ⟨k.1 + n', Nat.add_lt_add_right k.2 n'⟩
+      else bd_var ⟨k.1, Nat.lt_of_lt_of_le k.2 (Nat.le_add_right n n')⟩
   | _, bd_func f, _, _ => bd_func f
   | _, bd_app t₁ t₂, n', m => bd_app (lift_bounded_term_at t₁ n' m) (lift_bounded_term_at t₂ n' m)
 
@@ -255,7 +255,9 @@ def subst_bounded_term {n n'} : ∀ {l} (t : bounded_preterm L (n + n' + 1) l)
   | _, bd_var k, s =>
       if h : k.1 < n then bd_var ⟨k.1, Nat.lt_of_lt_of_le h (Nat.le_add_right n n')⟩
       else if h' : n < k.1 then
-        bd_var ⟨k.1 - 1, by omega⟩
+        bd_var ⟨k.1 - 1,
+          (Nat.sub_lt_iff_lt_add
+            (Nat.succ_le_of_lt (Nat.lt_of_le_of_lt (Nat.zero_le n) h'))).mpr k.2⟩
       else
         (s ↑ᵇ n).cast (Nat.le_of_eq (Nat.add_comm n' n))
   | _, bd_func f, _ => bd_func f
@@ -361,11 +363,12 @@ def bounded_formula_of_relation {l n} (R : L.relations l) :
       bd_imp (subst_bounded_formula f₁ s rfl) (subst_bounded_formula f₂ s rfl)
   | n, n', _, _, bd_all f, s, rfl =>
       -- f : bounded_preformula L (n + n' + 1 + 1) 0
-      -- we call subst with n+1, n', giving h : (n+1)+n'+1 = n+n'+1+1 (proved by omega)
+      -- we call subst with n+1, n', giving h : (n+1)+n'+1 = n+n'+1+1
       -- result: bounded_preformula L ((n+1)+n') 0 = bounded_preformula L (n+n'+1) 0
       -- then cast to n+n'+1 = n+n'+1 which is trivially true
-      bd_all ((subst_bounded_formula f s (by omega : (n + 1) + n' + 1 = n + n' + 1 + 1)).cast_eq
-        (show (n + 1) + n' = n + n' + 1 from by omega))
+      bd_all ((subst_bounded_formula f s
+        (congrArg (fun k : ℕ => k + 1) (Nat.add_right_comm n 1 n'))).cast_eq
+        (Nat.add_right_comm n 1 n'))
 
 /-- Substitute a closed term for the highest free variable. -/
 @[simp] def substmax_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
@@ -376,7 +379,8 @@ def bounded_formula_of_relation {l n} (R : L.relations l) :
 def subst0_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
     (s : bounded_term L n) : bounded_preformula L n l :=
   -- n + 1 = 0 + n + 1, so we use h : 0 + n + 1 = n + 1
-  (subst_bounded_formula f s (by omega : 0 + n + 1 = n + 1)).cast_eq (by omega : 0 + n = n)
+  (subst_bounded_formula f s (congrArg (fun k : ℕ => k + 1) (Nat.zero_add n))).cast_eq
+    (Nat.zero_add n)
 
 /-- Insert free-variable positions, adjusting the cutoff beneath quantifiers. -/
 @[simp] def lift_bounded_formula_at : ∀ {n l} (f : bounded_preformula L n l) (n' m : ℕ),
@@ -389,7 +393,7 @@ def subst0_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
   | _, _, bd_imp f₁ f₂, n', m =>
       bd_imp (lift_bounded_formula_at f₁ n' m) (lift_bounded_formula_at f₂ n' m)
   | n, _, bd_all f, n', m =>
-      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (by omega))
+      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (Nat.add_right_comm n 1 n'))
 
 notation:90 f " ↑ᶠᵇ' " n " # " m => Fol.lift_bounded_formula_at f n m
 
@@ -469,25 +473,25 @@ def subset'' {n} (t₁ t₂ : bounded_term L_ZFC n) : bounded_formula L_ZFC n :=
 
 /-- The free set is transitive. -/
 def is_transitive_f : bounded_formula L_ZFC 1 :=
-  bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
-                 (subset'' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩)))
+  bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+                 (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)))
 
 /-- Any two members of the free set are equal or membership-comparable. -/
 def epsilon_trichotomy_f : bounded_formula L_ZFC 1 :=
-  bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
-    (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
+  bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+    (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
       (bd_or
-        (bd_or (bd_equal (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩))
-               (mem' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩)))
-        (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))))))
+        (bd_or (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))
+               (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))
+        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))))))
 
 /-- Every nonempty subset of the free set has a membership-minimal element. -/
 def epsilon_well_founded_f : bounded_formula L_ZFC 1 :=
-  bd_all (bd_imp (subset'' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
-    (bd_imp (bd_not (bd_equal (bd_var ⟨0, by omega⟩) ∅'))
-      (bd_ex (bd_and (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
-        (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
-          (bd_not (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩)))))))))
+  bd_all (bd_imp (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+    (bd_imp (bd_not (bd_equal (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
+      (bd_ex (bd_and (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+          (bd_not (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)))))))))
 
 /-- Membership linearly well-orders the free set. -/
 def ewo_f : bounded_formula L_ZFC 1 := bd_and epsilon_trichotomy_f epsilon_well_founded_f
@@ -497,61 +501,61 @@ def Ord_f : bounded_formula L_ZFC 1 := bd_and ewo_f is_transitive_f
 
 /-- No set belongs to the empty-set constant. -/
 def axiom_of_emptyset : sentence L_ZFC :=
-  bd_all (bd_not (mem' (bd_var ⟨0, by omega⟩) ∅'))
+  bd_all (bd_not (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
 
 /-- Two ordered pairs are equal exactly when their respective coordinates are equal. -/
 def axiom_of_ordered_pairs : sentence L_ZFC :=
   bd_all (bd_all (bd_all (bd_all
     (bd_biimp
-      (bd_equal (pair' (bd_var ⟨3, by omega⟩) (bd_var ⟨2, by omega⟩))
-                (pair' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩)))
+      (bd_equal (pair' (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+                (pair' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))
       (bd_and
-        (bd_equal (bd_var ⟨3, by omega⟩) (bd_var ⟨1, by omega⟩))
-        (bd_equal (bd_var ⟨2, by omega⟩) (bd_var ⟨0, by omega⟩)))))))
+        (bd_equal (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+        (bd_equal (bd_var ⟨2, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
 
 /-- Sets with the same members are equal. -/
 def axiom_of_extensionality : sentence L_ZFC :=
   bd_all (bd_all
     (bd_imp
       (bd_all (bd_biimp
-        (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
-        (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))))
-      (bd_equal (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩))))
+        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))))
+      (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))))
 
 /-- Universally closed strong collection schema for the two-variable relation `ϕ` and parameters. -/
 def axiom_of_collection {n} (ϕ : bounded_formula L_ZFC (n + 2)) : sentence L_ZFC :=
   bd_alls (n + 1) $
     bd_imp
-      (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
+      (bd_all (bd_imp (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 2) (Nat.le_add_left 2 n)⟩) (bd_var ⟨1, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 1 < 2) (Nat.le_add_left 2 n)⟩))
         (bd_ex (ϕ ↑ᶠᵇ' 1 # 2))))
       (bd_ex
         (bd_and
-          (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
+          (bd_all (bd_imp (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 3) (Nat.le_add_left 3 n)⟩) (bd_var ⟨2, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 2 < 3) (Nat.le_add_left 3 n)⟩))
             (bd_ex (bd_and
-              (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
+              (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 4) (Nat.le_add_left 4 n)⟩) (bd_var ⟨2, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 2 < 4) (Nat.le_add_left 4 n)⟩))
               (ϕ ↑ᶠᵇ' 2 # 2)))))
-          (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
+          (bd_all (bd_imp (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 3) (Nat.le_add_left 3 n)⟩) (bd_var ⟨1, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 1 < 3) (Nat.le_add_left 3 n)⟩))
             (bd_ex (bd_and
-              (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨3, by omega⟩))
-              (subst0_bounded_formula (ϕ ↑ᶠᵇ' 3 # 2) (bd_var ⟨1, by omega⟩))))))))
+              (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 4) (Nat.le_add_left 4 n)⟩) (bd_var ⟨3, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 3 < 4) (Nat.le_add_left 4 n)⟩))
+              (subst0_bounded_formula (ϕ ↑ᶠᵇ' 3 # 2) (bd_var ⟨1, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 1 < 4) (Nat.le_add_left 4 n)⟩))))))))
 
 /-- Members of the union of a set are precisely members of its members. -/
 def axiom_of_union : sentence L_ZFC :=
   bd_all (bd_all
     (bd_biimp
-      (mem' (bd_var ⟨0, by omega⟩) (union' (bd_var ⟨1, by omega⟩)))
+      (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (union' (bd_var ⟨1, of_decide_eq_true rfl⟩)))
       (bd_ex (bd_and
-        (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
-        (mem' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩))))))
+        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+        (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))))))
 
 /-- Members of a powerset are precisely subsets of its argument. -/
 def axiom_of_powerset : sentence L_ZFC :=
   bd_all (bd_all
     (bd_biimp
-      (mem' (bd_var ⟨0, by omega⟩) (Powerset (bd_var ⟨1, by omega⟩)))
+      (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (Powerset (bd_var ⟨1, of_decide_eq_true rfl⟩)))
       (bd_all (bd_imp
-        (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
-        (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))))))
+        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))))))
 
 /-- The omega constant is the least limit ordinal, with the displayed infinity conditions. -/
 def axiom_of_infinity : sentence L_ZFC :=
@@ -559,42 +563,42 @@ def axiom_of_infinity : sentence L_ZFC :=
     (bd_and
       (bd_and
         (mem' ∅' ω')
-        (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) ω')
+        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) ω')
           (bd_ex (bd_and
-            (mem' (bd_var ⟨0, by omega⟩) ω')
-            (mem' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩)))))))
-      (bd_ex (bd_and Ord_f (bd_equal ω' (bd_var ⟨0, by omega⟩)))))
+            (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) ω')
+            (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
+      (bd_ex (bd_and Ord_f (bd_equal ω' (bd_var ⟨0, of_decide_eq_true rfl⟩)))))
     (bd_all (bd_imp Ord_f (bd_imp
-      (bd_and (mem' ∅' (bd_var ⟨0, by omega⟩))
-        (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
+      (bd_and (mem' ∅' (bd_var ⟨0, of_decide_eq_true rfl⟩))
+        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
           (bd_ex (bd_and
-            (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
-            (mem' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩)))))))
-      (subset'' ω' (bd_var ⟨0, by omega⟩)))))
+            (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+            (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
+      (subset'' ω' (bd_var ⟨0, of_decide_eq_true rfl⟩)))))
 
 /-- Every nonempty set has a membership-minimal element. -/
 def axiom_of_regularity : sentence L_ZFC :=
-  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, by omega⟩) ∅'))
-    (bd_ex (bd_and (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
-      (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
-        (bd_not (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))))))))
+  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
+    (bd_ex (bd_and (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+      (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+        (bd_not (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))))))))
 
 /-- A nonempty family closed under unions of inclusion chains has an inclusion-maximal member. -/
 def zorns_lemma : sentence L_ZFC :=
-  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, by omega⟩) ∅'))
+  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
     (bd_imp
       (bd_all (bd_imp
-        (bd_and (subset'' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
+        (bd_and (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
           (bd_all (bd_all (bd_imp
-            (bd_and (mem' (bd_var ⟨1, by omega⟩) (bd_var ⟨2, by omega⟩))
-                    (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩)))
-            (bd_or (subset'' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩))
-                   (subset'' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩)))))))
-        (mem' (union' (bd_var ⟨0, by omega⟩)) (bd_var ⟨1, by omega⟩))))
-      (bd_ex (bd_and (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩))
-        (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
-          (bd_imp (subset'' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩))
-            (bd_equal (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩)))))))))
+            (bd_and (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+                    (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩)))
+            (bd_or (subset'' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))
+                   (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)))))))
+        (mem' (union' (bd_var ⟨0, of_decide_eq_true rfl⟩)) (bd_var ⟨1, of_decide_eq_true rfl⟩))))
+      (bd_ex (bd_and (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+          (bd_imp (subset'' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))
+            (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))))
 
 /-- The eight displayed set-theoretic sentences and every instance of strong collection. -/
 def ZFC : SentTheory L_ZFC :=
@@ -607,33 +611,33 @@ def is_func_f : bounded_formula L_ZFC 1 :=
   bd_all (bd_all (bd_all (bd_all
     (bd_imp
       (bd_and
-        (mem' (pair' (bd_var ⟨3, by omega⟩) (bd_var ⟨1, by omega⟩)) (bd_var ⟨4, by omega⟩))
-        (mem' (pair' (bd_var ⟨2, by omega⟩) (bd_var ⟨0, by omega⟩)) (bd_var ⟨4, by omega⟩)))
-      (bd_imp (bd_equal (bd_var ⟨3, by omega⟩) (bd_var ⟨2, by omega⟩))
-              (bd_equal (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩)))))))
+        (mem' (pair' (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)) (bd_var ⟨4, of_decide_eq_true rfl⟩))
+        (mem' (pair' (bd_var ⟨2, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)) (bd_var ⟨4, of_decide_eq_true rfl⟩)))
+      (bd_imp (bd_equal (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+              (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
 
 /-- With free variables `[f,y,x]`, the relation is total from `y` to `x`. -/
 def is_total'_f₂ : bounded_formula L_ZFC 3 :=
-  bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨2, by omega⟩))
+  bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
     (bd_ex (bd_and
-      (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨4, by omega⟩))
-      (mem' (pair' (bd_var ⟨1, by omega⟩) (bd_var ⟨0, by omega⟩)) (bd_var ⟨2, by omega⟩)))))
+      (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨4, of_decide_eq_true rfl⟩))
+      (mem' (pair' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)) (bd_var ⟨2, of_decide_eq_true rfl⟩)))))
 
 /-- With free variables `[f,y,x]`, the relation is a total function from `y` to `x`. -/
 def is_func'_f₂ : bounded_formula L_ZFC 3 :=
-  bd_and (is_func_f.cast (by omega)) is_total'_f₂
+  bd_and (is_func_f.cast (of_decide_eq_true rfl)) is_total'_f₂
 
 /-- With free variables `[y,x]`, some subset of `x` admits a surjection onto `y`. -/
 def at_most_f : bounded_formula L_ZFC 2 :=
   bd_ex (bd_ex
     (bd_and
       (bd_and
-        (subset'' (bd_var ⟨1, by omega⟩) (bd_var ⟨3, by omega⟩))
-        (is_func'_f₂.cast (by omega)))
-      (bd_all (bd_imp (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨3, by omega⟩))
+        (subset'' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨3, of_decide_eq_true rfl⟩))
+        (is_func'_f₂.cast (of_decide_eq_true rfl)))
+      (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨3, of_decide_eq_true rfl⟩))
         (bd_ex (bd_and
-          (mem' (bd_var ⟨0, by omega⟩) (bd_var ⟨3, by omega⟩))
-          (mem' (pair' (bd_var ⟨0, by omega⟩) (bd_var ⟨1, by omega⟩)) (bd_var ⟨2, by omega⟩))))))))
+          (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨3, of_decide_eq_true rfl⟩))
+          (mem' (pair' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)) (bd_var ⟨2, of_decide_eq_true rfl⟩))))))))
 
 /-- Every ordinal is a surjective image of a subset of omega, or its subset surjects onto the powerset of omega. -/
 def CH_f : sentence L_ZFC :=

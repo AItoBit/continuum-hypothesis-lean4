@@ -1884,8 +1884,8 @@ lemma realize_bounded_term_irrel {S : Structure L} {n} {v₁ : DVec S n}
 @[simp] def lift_bounded_term_at {n} : ∀ {l} (t : bounded_preterm L n l) (n' m : ℕ),
     bounded_preterm L (n + n') l
   | _, bd_var k, n', m =>
-      if m ≤ k.1 then bd_var ⟨k.1 + n', by omega⟩
-      else bd_var ⟨k.1, by omega⟩
+      if m ≤ k.1 then bd_var ⟨k.1 + n', Nat.add_lt_add_right k.2 n'⟩
+      else bd_var ⟨k.1, Nat.lt_of_lt_of_le k.2 (Nat.le_add_right n n')⟩
   | _, bd_func f, _, _ => bd_func f
   | _, bd_app t₁ t₂, n', m => bd_app (lift_bounded_term_at t₁ n' m) (lift_bounded_term_at t₂ n' m)
 
@@ -1916,7 +1916,9 @@ def subst_bounded_term {n n'} : ∀ {l} (t : bounded_preterm L (n + n' + 1) l)
   | _, bd_var k, s =>
       if h : k.1 < n then bd_var ⟨k.1, Nat.lt_of_lt_of_le h (Nat.le_add_right n n')⟩
       else if h' : n < k.1 then
-        bd_var ⟨k.1 - 1, by omega⟩
+        bd_var ⟨k.1 - 1,
+          (Nat.sub_lt_iff_lt_add
+            (Nat.succ_le_of_lt (Nat.lt_of_le_of_lt (Nat.zero_le n) h'))).mpr k.2⟩
       else
         (s ↑ᵇ n).cast (Nat.le_of_eq (Nat.add_comm n' n))
   | _, bd_func f, _ => bd_func f
@@ -2560,11 +2562,12 @@ def bounded_formula.rec {C : ∀ n, bounded_formula L n → Sort v}
       bd_imp (subst_bounded_formula f₁ s rfl) (subst_bounded_formula f₂ s rfl)
   | n, n', _, _, bd_all f, s, rfl =>
       -- f : bounded_preformula L (n + n' + 1 + 1) 0
-      -- we call subst with n+1, n', giving h : (n+1)+n'+1 = n+n'+1+1 (proved by omega)
+      -- we call subst with n+1, n', giving h : (n+1)+n'+1 = n+n'+1+1
       -- result: bounded_preformula L ((n+1)+n') 0 = bounded_preformula L (n+n'+1) 0
       -- then cast to n+n'+1 = n+n'+1 which is trivially true
-      bd_all ((subst_bounded_formula f s (by omega : (n + 1) + n' + 1 = n + n' + 1 + 1)).cast_eq
-        (show (n + 1) + n' = n + n' + 1 from by omega))
+      bd_all ((subst_bounded_formula f s
+        (congrArg (fun k : ℕ => k + 1) (Nat.add_right_comm n 1 n'))).cast_eq
+        (Nat.add_right_comm n 1 n'))
 
 @[simp] lemma subst_bounded_formula_fst : ∀ {n n' n'' l} (f : bounded_preformula L n'' l)
     (s : bounded_term L n') (h : n + n' + 1 = n''),
@@ -2608,7 +2611,8 @@ lemma substmax_bounded_formula_bd_apps_rel {n l} (f : bounded_preformula L (n + 
 def subst0_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
     (s : bounded_term L n) : bounded_preformula L n l :=
   -- n + 1 = 0 + n + 1, so we use h : 0 + n + 1 = n + 1
-  (subst_bounded_formula f s (by omega : 0 + n + 1 = n + 1)).cast_eq (by omega : 0 + n = n)
+  (subst_bounded_formula f s (congrArg (fun k : ℕ => k + 1) (Nat.zero_add n))).cast_eq
+    (Nat.zero_add n)
 
 @[simp] lemma subst0_bounded_formula_fst {n l} (f : bounded_preformula L (n + 1) l)
     (s : bounded_term L n) : (subst0_bounded_formula f s).fst = subst_formula f.fst s.fst 0 := by
@@ -2759,7 +2763,7 @@ lemma realize_sentence_iff {S : Structure L} (v : ℕ → S) (f : sentence L) :
   | _, _, bd_imp f₁ f₂, n', m =>
       bd_imp (lift_bounded_formula_at f₁ n' m) (lift_bounded_formula_at f₂ n' m)
   | n, _, bd_all f, n', m =>
-      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (by omega))
+      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (Nat.add_right_comm n 1 n'))
 
 notation:90 f " ↑ᶠᵇ' " n " # " m => Fol.lift_bounded_formula_at f n m
 

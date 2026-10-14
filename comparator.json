@@ -1,0 +1,6 @@
+{
+  "challenge_module": "Challenge",
+  "solution_module": "Solution",
+  "theorem_names": ["ContinuumIndependence.independence_of_CH"],
+  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
+}

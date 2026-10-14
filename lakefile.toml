@@ -1,0 +1,59 @@
+name = "flypitch4_compat"
+defaultTargets = ["Solution"]
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "065356127b1dc0016f66b7283ce0ce2c4055aa55"
+
+[[require]]
+name = "plausible"
+git = "https://github.com/leanprover-community/plausible"
+rev = "e50948299c4dc4a4c21b1c34b6a6a4fddc19f912"
+
+[[require]]
+name = "LeanSearchClient"
+git = "https://github.com/leanprover-community/LeanSearchClient"
+rev = "95e037bfdc31d3916ac615446847fb01960e2719"
+
+[[require]]
+name = "importGraph"
+git = "https://github.com/leanprover-community/import-graph"
+rev = "10930f8138f0462dbd744a91fc03a16fae0e046f"
+
+[[require]]
+name = "proofwidgets"
+git = "https://github.com/leanprover-community/ProofWidgets4"
+rev = "4c70ac059693669e5756e32a7a94b57ee1e99dc5"
+
+[[require]]
+name = "aesop"
+git = "https://github.com/leanprover-community/aesop"
+rev = "75d936c7af167cc93fac0d31237682fc2204591d"
+
+[[require]]
+name = "Qq"
+git = "https://github.com/leanprover-community/quote4"
+rev = "786b7acdca7eb4e9c76c5d1d5bd810e7e5c56334"
+
+[[require]]
+name = "batteries"
+git = "https://github.com/leanprover-community/batteries"
+rev = "ed9b316aabe389fec1ef43c3326ab48c7e59be42"
+
+[[require]]
+name = "Cli"
+git = "https://github.com/leanprover/lean4-cli"
+rev = "2842b9871b04862f944c032e34052cb9448ccb71"
+
+[[lean_lib]]
+name = "Flypitch4"
+
+[[lean_lib]]
+name = "ContinuumIndependence"
+
+[[lean_lib]]
+name = "Challenge"
+
+[[lean_lib]]
+name = "Solution"

@@ -1,0 +1,103 @@
+version: v0.4
+
+project:
+  name: "Continuum hypothesis independence: a Flypitch reproduction"
+  description: >-
+    An attributed adaptation of the Flypitch formal proof of two-sided
+    syntactic independence of the continuum hypothesis from its explicitly
+    encoded first-order ZFC theory. Cohen and collapse Boolean-valued models,
+    together with soundness, establish that neither the encoded CH sentence
+    nor its negation is derivable. The development uses an expanded language
+    with definable set operations, collection and Zorn's lemma. It does not
+    supply a formal translation to membership-only ZFC or determine the truth
+    of CH for the ambient Lean reals. This is a reproduction of established
+    work, not a new mathematical solution.
+  authors: ["Alexander"]
+  responsible_maintainers: ["Alexander"]
+  license: Apache-2.0
+
+classification:
+  arxiv: [math.LO]
+  msc2020: [03E50, 03E35, 03B35]
+
+sources:
+  - title: "A Formal Proof of the Independence of the Continuum Hypothesis"
+    authors: ["Jesse Michael Han", "Floris van Doorn"]
+    type: paper
+    id: "doi:10.1145/3372885.3373826"
+    location: "https://florisvandoorn.com/papers/flypitch-cpp-2020.pdf"
+    relationship: formalizes
+    note: >-
+      CPP 2020. The present work reuses the associated formalization through
+      its Lean 4 port, with compatibility and registry-packaging adaptations.
+      No independent new proof or endorsement by these authors is claimed.
+
+related_formalizations:
+  - id: "https://github.com/ianklatzco/flypitch/tree/ad649f89e9f3107b7e2ea97a58b2eafdfc80b815"
+    relationship: adapts
+    note: >-
+      The substantive Flypitch proof sources are included here under their
+      original Apache-2.0 notices. Original formalization authors are Jesse
+      Michael Han and Floris van Doorn; the Lean 4 port is attributed to Ian
+      Klatzco and Claude. Alexander is responsible for this submission and
+      its AI-assisted adaptation, not the discovery of CH independence.
+  - id: "https://github.com/flypitch/flypitch"
+    relationship: adapts
+    note: "Original Lean 3 Flypitch development by Jesse Michael Han and Floris van Doorn."
+
+status:
+  scope: >-
+    Two-sided nonderivability for the exact concrete encoded ZFC and CH
+    definitions in Challenge. The Challenge theorem is an intentional
+    specification hole; Solution must provide the complete proof without it.
+    The Lean 4.33.1 baseline was verified. The current module-system and
+    toolchain adaptation is awaiting its complete Palomar mechanical check.
+  sorry_count: 1
+  sorry_in_definitions: 0
+  solution_sorry_count: 0
+  axioms: [propext, Classical.choice, Quot.sound]
+
+automation:
+  methods:
+    - method: agent
+      models: ["OpenAI Codex agents"]
+      tool_setup: >-
+        Agents audited source correspondence, adapted existing proof scripts,
+        extracted the concrete Challenge, ran Lean builds and axiom audits,
+        and prepared the Palomar package. Separate agents reviewed the
+        statement and compatibility differences. This is AI review, not
+        independent human peer review.
+    - method: agent
+      models: ["Claude, as credited by the upstream Lean 4 port"]
+      tool_setup: "Upstream Lean 3 to Lean 4 port; details are attributed to the upstream repository."
+  notes: >-
+    Alexander requested publication, supplied this name, and confirmed
+    responsibility for the formalization. Human authorship in project.authors
+    denotes responsibility for this adaptation. Original mathematical and
+    formalization authors are credited explicitly in sources and related work.
+
+fidelity:
+  divergences: >-
+    This theorem concerns Flypitch's expanded ZFC language and its explicit
+    inductive proof calculus. No formal conservative translation to the pure
+    membership language or bridge to a separate ambient Mathlib cardinal CH
+    proposition is claimed. There are no CH premises in the endpoint. Lean's
+    universe metatheory is stronger than the object theory whose derivability
+    is studied. No claim of an axiom-free proof is made.
+
+review:
+  status: agent-reviewed
+  reviewers: ["Separate Codex source-fidelity and compatibility-review agents"]
+  notes: >-
+    The preceding full proof build and transitive axiom audit passed under
+    Lean 4.33.1. Review distinguishes that baseline from the new module and
+    toolchain adaptation. The current snapshot requires fresh Comparator,
+    NanoDa and full Palomar workflow evidence before intake.
+
+alignment:
+  namespace: ContinuumIndependence
+  statements:
+    - source: "Han and van Doorn, CPP 2020; attributed Flypitch Lean 4 port"
+      lean: ContinuumIndependence.independence_of_CH
+      module: Solution
+      note: "Neither the encoded CH sentence nor its object-language negation is derivable from the encoded ZFC theory."

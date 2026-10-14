@@ -807,10 +807,10 @@ noncomputable def 𝔹_collapse : Type u :=
   CollapseAlgebra (pSet_aleph1 : PSet.{u}).Type
     (PSet.powerset PSet.omega : PSet.{u}).Type
 
-private instance : Nonempty (PSet.powerset PSet.omega : PSet.{u}).Type := by
+local instance : Nonempty (PSet.powerset PSet.omega : PSet.{u}).Type := by
   simp only [PSet.powerset, PSet.Type]; exact ⟨Set.univ⟩
 
-private instance : Nonempty ((pSet_aleph1 : PSet.{u}).Type →
+local instance : Nonempty ((pSet_aleph1 : PSet.{u}).Type →
     (PSet.powerset PSet.omega : PSet.{u}).Type) :=
   ⟨fun _ => Classical.arbitrary _⟩
 

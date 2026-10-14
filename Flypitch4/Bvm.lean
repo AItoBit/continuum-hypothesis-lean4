@@ -1480,7 +1480,7 @@ lemma supr_antichain2_contains :
   have hspec := @B_small_witness_spec _ _ ϕ i
   rw [hspec]
   -- By well-founded induction on i: show i.val ≤ ⨆ b, witness_antichain r b
-  apply (IsWellFounded.wf (r := r)).induction i
+  apply (IsWellOrder.wf (r := r)).induction i
   intro i ih
   -- Decompose: i.val = (i.val \ ⨆ j ∈ ds r i, j.val) ⊔ (i.val ⊓ ⨆ j ∈ ds r i, j.val)
   --           = witness_antichain r i ⊔ (i.val ⊓ ⨆ j ∈ ds r i, j.val)

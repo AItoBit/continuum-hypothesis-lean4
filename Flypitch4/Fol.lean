@@ -17,6 +17,46 @@ universe u v
 
 namespace Fol
 
+namespace BoundProof
+
+theorem index_lt (i gap n : ℕ) : i < n + (i + gap + 1) :=
+  Nat.lt_of_lt_of_le (Nat.lt_succ_of_le (Nat.le_add_right i gap))
+    (Nat.le_add_left (i + gap + 1) n)
+
+theorem cast_lt {n m : ℕ} (h : n ≤ m) (k : Fin n) : k.1 < m :=
+  Nat.lt_of_lt_of_le k.2 h
+
+theorem lift_lt {n : ℕ} (k : Fin n) (n' : ℕ) : k.1 + n' < n + n' :=
+  Nat.add_lt_add_right k.2 n'
+
+theorem weaken_lt {n : ℕ} (k : Fin n) (n' : ℕ) : k.1 < n + n' :=
+  Nat.lt_of_lt_of_le k.2 (Nat.le_add_right n n')
+
+theorem subst_left_lt {n n' : ℕ} (k : Fin (n + n' + 1)) (h : k.1 < n) :
+    k.1 < n + n' :=
+  Nat.lt_of_lt_of_le h (Nat.le_add_right n n')
+
+theorem subst_right_lt {n n' : ℕ} (k : Fin (n + n' + 1)) (h : n < k.1) :
+    k.1 - 1 < n + n' :=
+  (Nat.sub_lt_iff_lt_add
+    (Nat.succ_le_of_lt (Nat.lt_of_le_of_lt (Nat.zero_le n) h))).mpr k.2
+
+theorem add_comm_le (n n' : ℕ) : n' + n ≤ n + n' :=
+  Nat.le_of_eq (Nat.add_comm n' n)
+
+theorem subst_refl (n n' : ℕ) : n + n' + 1 = n + n' + 1 := rfl
+
+theorem subst_all_eq (n n' : ℕ) : (n + 1) + n' + 1 = n + n' + 1 + 1 :=
+  congrArg (fun k : ℕ => k + 1) (Nat.add_right_comm n 1 n')
+
+theorem subst_zero_eq (n : ℕ) : 0 + n + 1 = n + 1 :=
+  congrArg (fun k : ℕ => k + 1) (Nat.zero_add n)
+
+theorem add_right_comm_one (n n' : ℕ) : (n + 1) + n' = n + n' + 1 :=
+  Nat.add_right_comm n 1 n'
+
+end BoundProof
+
 /-! ## Valuation helpers (subst_realize) -/
 
 /-- Given a valuation v, a nat n, and an x : S, return v truncated to its first n values,
@@ -1678,7 +1718,7 @@ namespace bounded_preterm
 /-- Cast a bounded_preterm L n l to one with a larger bound m ≥ n. -/
 @[simp] protected def cast {n m} (h : n ≤ m) : ∀ {l}, bounded_preterm L n l →
     bounded_preterm L m l
-  | _, bd_var k => bd_var ⟨k.1, Nat.lt_of_lt_of_le k.2 h⟩
+  | _, bd_var k => bd_var ⟨k.1, BoundProof.cast_lt h k⟩
   | _, bd_func f => bd_func f
   | _, bd_app t s => bd_app (t.cast h) (s.cast h)
 
@@ -1884,8 +1924,8 @@ lemma realize_bounded_term_irrel {S : Structure L} {n} {v₁ : DVec S n}
 @[simp] def lift_bounded_term_at {n} : ∀ {l} (t : bounded_preterm L n l) (n' m : ℕ),
     bounded_preterm L (n + n') l
   | _, bd_var k, n', m =>
-      if m ≤ k.1 then bd_var ⟨k.1 + n', Nat.add_lt_add_right k.2 n'⟩
-      else bd_var ⟨k.1, Nat.lt_of_lt_of_le k.2 (Nat.le_add_right n n')⟩
+      if m ≤ k.1 then bd_var ⟨k.1 + n', BoundProof.lift_lt k n'⟩
+      else bd_var ⟨k.1, BoundProof.weaken_lt k n'⟩
   | _, bd_func f, _, _ => bd_func f
   | _, bd_app t₁ t₂, n', m => bd_app (lift_bounded_term_at t₁ n' m) (lift_bounded_term_at t₂ n' m)
 
@@ -1914,13 +1954,11 @@ infixl:100 " ↑ᵇ " => Fol.lift_bounded_term
 def subst_bounded_term {n n'} : ∀ {l} (t : bounded_preterm L (n + n' + 1) l)
     (s : bounded_term L n'), bounded_preterm L (n + n') l
   | _, bd_var k, s =>
-      if h : k.1 < n then bd_var ⟨k.1, Nat.lt_of_lt_of_le h (Nat.le_add_right n n')⟩
+      if h : k.1 < n then bd_var ⟨k.1, BoundProof.subst_left_lt k h⟩
       else if h' : n < k.1 then
-        bd_var ⟨k.1 - 1,
-          (Nat.sub_lt_iff_lt_add
-            (Nat.succ_le_of_lt (Nat.lt_of_le_of_lt (Nat.zero_le n) h'))).mpr k.2⟩
+        bd_var ⟨k.1 - 1, BoundProof.subst_right_lt k h'⟩
       else
-        (s ↑ᵇ n).cast (Nat.le_of_eq (Nat.add_comm n' n))
+        (s ↑ᵇ n).cast (BoundProof.add_comm_le n n')
   | _, bd_func f, _ => bd_func f
   | _, bd_app t₁ t₂, s => bd_app (subst_bounded_term t₁ s) (subst_bounded_term t₂ s)
 
@@ -2556,18 +2594,18 @@ def bounded_formula.rec {C : ∀ n, bounded_formula L n → Sort v}
   | _, _, _, _, bd_falsum, _, _ => bd_falsum
   | _, _, _, _, bd_equal t₁ t₂, s, rfl => bd_equal (subst_bounded_term t₁ s) (subst_bounded_term t₂ s)
   | _, _, _, _, bd_rel R, _, _ => bd_rel R
-  | _, _, _, _, bd_apprel f t, s, rfl =>
-      bd_apprel (subst_bounded_formula f s rfl) (subst_bounded_term t s)
-  | _, _, _, _, bd_imp f₁ f₂, s, rfl =>
-      bd_imp (subst_bounded_formula f₁ s rfl) (subst_bounded_formula f₂ s rfl)
+  | n, n', _, _, bd_apprel f t, s, rfl =>
+      bd_apprel (subst_bounded_formula f s (BoundProof.subst_refl n n')) (subst_bounded_term t s)
+  | n, n', _, _, bd_imp f₁ f₂, s, rfl =>
+      bd_imp (subst_bounded_formula f₁ s (BoundProof.subst_refl n n'))
+        (subst_bounded_formula f₂ s (BoundProof.subst_refl n n'))
   | n, n', _, _, bd_all f, s, rfl =>
       -- f : bounded_preformula L (n + n' + 1 + 1) 0
       -- we call subst with n+1, n', giving h : (n+1)+n'+1 = n+n'+1+1
       -- result: bounded_preformula L ((n+1)+n') 0 = bounded_preformula L (n+n'+1) 0
       -- then cast to n+n'+1 = n+n'+1 which is trivially true
-      bd_all ((subst_bounded_formula f s
-        (congrArg (fun k : ℕ => k + 1) (Nat.add_right_comm n 1 n'))).cast_eq
-        (Nat.add_right_comm n 1 n'))
+      bd_all ((subst_bounded_formula f s (BoundProof.subst_all_eq n n')).cast_eq
+        (BoundProof.add_right_comm_one n n'))
 
 @[simp] lemma subst_bounded_formula_fst : ∀ {n n' n'' l} (f : bounded_preformula L n'' l)
     (s : bounded_term L n') (h : n + n' + 1 = n''),
@@ -2589,7 +2627,7 @@ def bounded_formula.rec {C : ∀ n, bounded_formula L n → Sort v}
 
 @[simp] def substmax_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
     (s : closed_term L) : bounded_preformula L n l :=
-  subst_bounded_formula f s rfl
+  subst_bounded_formula f s (BoundProof.subst_refl n (nat_lit 0))
 
 @[simp] lemma substmax_bounded_formula_fst {n l} (f : bounded_preformula L (n + 1) l)
     (s : closed_term L) : (substmax_bounded_formula f s).fst = subst_formula f.fst s.fst n := by
@@ -2611,7 +2649,7 @@ lemma substmax_bounded_formula_bd_apps_rel {n l} (f : bounded_preformula L (n + 
 def subst0_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
     (s : bounded_term L n) : bounded_preformula L n l :=
   -- n + 1 = 0 + n + 1, so we use h : 0 + n + 1 = n + 1
-  (subst_bounded_formula f s (congrArg (fun k : ℕ => k + 1) (Nat.zero_add n))).cast_eq
+  (subst_bounded_formula f s (BoundProof.subst_zero_eq n)).cast_eq
     (Nat.zero_add n)
 
 @[simp] lemma subst0_bounded_formula_fst {n l} (f : bounded_preformula L (n + 1) l)
@@ -2763,7 +2801,7 @@ lemma realize_sentence_iff {S : Structure L} (v : ℕ → S) (f : sentence L) :
   | _, _, bd_imp f₁ f₂, n', m =>
       bd_imp (lift_bounded_formula_at f₁ n' m) (lift_bounded_formula_at f₂ n' m)
   | n, _, bd_all f, n', m =>
-      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (Nat.add_right_comm n 1 n'))
+      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (BoundProof.add_right_comm_one n n'))
 
 notation:90 f " ↑ᶠᵇ' " n " # " m => Fol.lift_bounded_formula_at f n m
 

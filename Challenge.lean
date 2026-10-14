@@ -60,6 +60,46 @@ end Arity'
 
 namespace Fol
 
+namespace BoundProof
+
+theorem index_lt (i gap n : ℕ) : i < n + (i + gap + 1) :=
+  Nat.lt_of_lt_of_le (Nat.lt_succ_of_le (Nat.le_add_right i gap))
+    (Nat.le_add_left (i + gap + 1) n)
+
+theorem cast_lt {n m : ℕ} (h : n ≤ m) (k : Fin n) : k.1 < m :=
+  Nat.lt_of_lt_of_le k.2 h
+
+theorem lift_lt {n : ℕ} (k : Fin n) (n' : ℕ) : k.1 + n' < n + n' :=
+  Nat.add_lt_add_right k.2 n'
+
+theorem weaken_lt {n : ℕ} (k : Fin n) (n' : ℕ) : k.1 < n + n' :=
+  Nat.lt_of_lt_of_le k.2 (Nat.le_add_right n n')
+
+theorem subst_left_lt {n n' : ℕ} (k : Fin (n + n' + 1)) (h : k.1 < n) :
+    k.1 < n + n' :=
+  Nat.lt_of_lt_of_le h (Nat.le_add_right n n')
+
+theorem subst_right_lt {n n' : ℕ} (k : Fin (n + n' + 1)) (h : n < k.1) :
+    k.1 - 1 < n + n' :=
+  (Nat.sub_lt_iff_lt_add
+    (Nat.succ_le_of_lt (Nat.lt_of_le_of_lt (Nat.zero_le n) h))).mpr k.2
+
+theorem add_comm_le (n n' : ℕ) : n' + n ≤ n + n' :=
+  Nat.le_of_eq (Nat.add_comm n' n)
+
+theorem subst_refl (n n' : ℕ) : n + n' + 1 = n + n' + 1 := rfl
+
+theorem subst_all_eq (n n' : ℕ) : (n + 1) + n' + 1 = n + n' + 1 + 1 :=
+  congrArg (fun k : ℕ => k + 1) (Nat.add_right_comm n 1 n')
+
+theorem subst_zero_eq (n : ℕ) : 0 + n + 1 = n + 1 :=
+  congrArg (fun k : ℕ => k + 1) (Nat.zero_add n)
+
+theorem add_right_comm_one (n n' : ℕ) : (n + 1) + n' = n + n' + 1 :=
+  Nat.add_right_comm n 1 n'
+
+end BoundProof
+
 /-- Replace entry `n` of a valuation by `x` and shift later entries down one. -/
 def subst_realize {S : Type u} (v : ℕ → S) (x : S) (n k : ℕ) : S :=
   if k < n then v k else if n < k then v (k - 1) else x
@@ -222,7 +262,7 @@ namespace bounded_preterm
 /-- Weaken the free-variable bound from `n` to `m`. -/
 @[simp] protected def cast {n m} (h : n ≤ m) : ∀ {l}, bounded_preterm L n l →
     bounded_preterm L m l
-  | _, bd_var k => bd_var ⟨k.1, Nat.lt_of_lt_of_le k.2 h⟩
+  | _, bd_var k => bd_var ⟨k.1, BoundProof.cast_lt h k⟩
   | _, bd_func f => bd_func f
   | _, bd_app t s => bd_app (t.cast h) (s.cast h)
 
@@ -236,8 +276,8 @@ end bounded_preterm
 @[simp] def lift_bounded_term_at {n} : ∀ {l} (t : bounded_preterm L n l) (n' m : ℕ),
     bounded_preterm L (n + n') l
   | _, bd_var k, n', m =>
-      if m ≤ k.1 then bd_var ⟨k.1 + n', Nat.add_lt_add_right k.2 n'⟩
-      else bd_var ⟨k.1, Nat.lt_of_lt_of_le k.2 (Nat.le_add_right n n')⟩
+      if m ≤ k.1 then bd_var ⟨k.1 + n', BoundProof.lift_lt k n'⟩
+      else bd_var ⟨k.1, BoundProof.weaken_lt k n'⟩
   | _, bd_func f, _, _ => bd_func f
   | _, bd_app t₁ t₂, n', m => bd_app (lift_bounded_term_at t₁ n' m) (lift_bounded_term_at t₂ n' m)
 
@@ -253,13 +293,11 @@ infixl:100 " ↑ᵇ " => Fol.lift_bounded_term
 def subst_bounded_term {n n'} : ∀ {l} (t : bounded_preterm L (n + n' + 1) l)
     (s : bounded_term L n'), bounded_preterm L (n + n') l
   | _, bd_var k, s =>
-      if h : k.1 < n then bd_var ⟨k.1, Nat.lt_of_lt_of_le h (Nat.le_add_right n n')⟩
+      if h : k.1 < n then bd_var ⟨k.1, BoundProof.subst_left_lt k h⟩
       else if h' : n < k.1 then
-        bd_var ⟨k.1 - 1,
-          (Nat.sub_lt_iff_lt_add
-            (Nat.succ_le_of_lt (Nat.lt_of_le_of_lt (Nat.zero_le n) h'))).mpr k.2⟩
+        bd_var ⟨k.1 - 1, BoundProof.subst_right_lt k h'⟩
       else
-        (s ↑ᵇ n).cast (Nat.le_of_eq (Nat.add_comm n' n))
+        (s ↑ᵇ n).cast (BoundProof.add_comm_le n n')
   | _, bd_func f, _ => bd_func f
   | _, bd_app t₁ t₂, s => bd_app (subst_bounded_term t₁ s) (subst_bounded_term t₂ s)
 
@@ -357,29 +395,29 @@ def bounded_formula_of_relation {l n} (R : L.relations l) :
   | _, _, _, _, bd_falsum, _, _ => bd_falsum
   | _, _, _, _, bd_equal t₁ t₂, s, rfl => bd_equal (subst_bounded_term t₁ s) (subst_bounded_term t₂ s)
   | _, _, _, _, bd_rel R, _, _ => bd_rel R
-  | _, _, _, _, bd_apprel f t, s, rfl =>
-      bd_apprel (subst_bounded_formula f s rfl) (subst_bounded_term t s)
-  | _, _, _, _, bd_imp f₁ f₂, s, rfl =>
-      bd_imp (subst_bounded_formula f₁ s rfl) (subst_bounded_formula f₂ s rfl)
+  | n, n', _, _, bd_apprel f t, s, rfl =>
+      bd_apprel (subst_bounded_formula f s (BoundProof.subst_refl n n')) (subst_bounded_term t s)
+  | n, n', _, _, bd_imp f₁ f₂, s, rfl =>
+      bd_imp (subst_bounded_formula f₁ s (BoundProof.subst_refl n n'))
+        (subst_bounded_formula f₂ s (BoundProof.subst_refl n n'))
   | n, n', _, _, bd_all f, s, rfl =>
       -- f : bounded_preformula L (n + n' + 1 + 1) 0
       -- we call subst with n+1, n', giving h : (n+1)+n'+1 = n+n'+1+1
       -- result: bounded_preformula L ((n+1)+n') 0 = bounded_preformula L (n+n'+1) 0
       -- then cast to n+n'+1 = n+n'+1 which is trivially true
-      bd_all ((subst_bounded_formula f s
-        (congrArg (fun k : ℕ => k + 1) (Nat.add_right_comm n 1 n'))).cast_eq
-        (Nat.add_right_comm n 1 n'))
+      bd_all ((subst_bounded_formula f s (BoundProof.subst_all_eq n n')).cast_eq
+        (BoundProof.add_right_comm_one n n'))
 
 /-- Substitute a closed term for the highest free variable. -/
 @[simp] def substmax_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
     (s : closed_term L) : bounded_preformula L n l :=
-  subst_bounded_formula f s rfl
+  subst_bounded_formula f s (BoundProof.subst_refl n (nat_lit 0))
 
 /-- Substitute a term for the innermost free variable. -/
 def subst0_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
     (s : bounded_term L n) : bounded_preformula L n l :=
   -- n + 1 = 0 + n + 1, so we use h : 0 + n + 1 = n + 1
-  (subst_bounded_formula f s (congrArg (fun k : ℕ => k + 1) (Nat.zero_add n))).cast_eq
+  (subst_bounded_formula f s (BoundProof.subst_zero_eq n)).cast_eq
     (Nat.zero_add n)
 
 /-- Insert free-variable positions, adjusting the cutoff beneath quantifiers. -/
@@ -393,7 +431,7 @@ def subst0_bounded_formula {n l} (f : bounded_preformula L (n + 1) l)
   | _, _, bd_imp f₁ f₂, n', m =>
       bd_imp (lift_bounded_formula_at f₁ n' m) (lift_bounded_formula_at f₂ n' m)
   | n, _, bd_all f, n', m =>
-      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (Nat.add_right_comm n 1 n'))
+      bd_all ((lift_bounded_formula_at f n' (m + 1)).cast_eq (BoundProof.add_right_comm_one n n'))
 
 notation:90 f " ↑ᶠᵇ' " n " # " m => Fol.lift_bounded_formula_at f n m
 
@@ -473,25 +511,25 @@ def subset'' {n} (t₁ t₂ : bounded_term L_ZFC n) : bounded_formula L_ZFC n :=
 
 /-- The free set is transitive. -/
 def is_transitive_f : bounded_formula L_ZFC 1 :=
-  bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-                 (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)))
+  bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))
+                 (subset'' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩)))
 
 /-- Any two members of the free set are equal or membership-comparable. -/
 def epsilon_trichotomy_f : bounded_formula L_ZFC 1 :=
-  bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-    (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+  bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))
+    (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) (nat_lit 0)⟩))
       (bd_or
-        (bd_or (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))
-               (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))
-        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))))))
+        (bd_or (bd_equal (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩))
+               (mem' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩)))
+        (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩))))))
 
 /-- Every nonempty subset of the free set has a membership-minimal element. -/
 def epsilon_well_founded_f : bounded_formula L_ZFC 1 :=
-  bd_all (bd_imp (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-    (bd_imp (bd_not (bd_equal (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
-      (bd_ex (bd_and (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-          (bd_not (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)))))))))
+  bd_all (bd_imp (subset'' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))
+    (bd_imp (bd_not (bd_equal (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) ∅'))
+      (bd_ex (bd_and (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩))
+        (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 1) (nat_lit 0)⟩))
+          (bd_not (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) (nat_lit 0)⟩)))))))))
 
 /-- Membership linearly well-orders the free set. -/
 def ewo_f : bounded_formula L_ZFC 1 := bd_and epsilon_trichotomy_f epsilon_well_founded_f
@@ -501,61 +539,61 @@ def Ord_f : bounded_formula L_ZFC 1 := bd_and ewo_f is_transitive_f
 
 /-- No set belongs to the empty-set constant. -/
 def axiom_of_emptyset : sentence L_ZFC :=
-  bd_all (bd_not (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
+  bd_all (bd_not (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 0) (nat_lit 0)⟩) ∅'))
 
 /-- Two ordered pairs are equal exactly when their respective coordinates are equal. -/
 def axiom_of_ordered_pairs : sentence L_ZFC :=
   bd_all (bd_all (bd_all (bd_all
     (bd_biimp
-      (bd_equal (pair' (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-                (pair' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))
+      (bd_equal (pair' (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 0) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 1) (nat_lit 0)⟩))
+                (pair' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩)))
       (bd_and
-        (bd_equal (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-        (bd_equal (bd_var ⟨2, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
+        (bd_equal (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 0) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) (nat_lit 0)⟩))
+        (bd_equal (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩)))))))
 
 /-- Sets with the same members are equal. -/
 def axiom_of_extensionality : sentence L_ZFC :=
   bd_all (bd_all
     (bd_imp
       (bd_all (bd_biimp
-        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))))
-      (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))))
+        (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) (nat_lit 0)⟩))
+        (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩))))
+      (bd_equal (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩))))
 
 /-- Universally closed strong collection schema for the two-variable relation `ϕ` and parameters. -/
 def axiom_of_collection {n} (ϕ : bounded_formula L_ZFC (n + 2)) : sentence L_ZFC :=
   bd_alls (n + 1) $
     bd_imp
-      (bd_all (bd_imp (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 2) (Nat.le_add_left 2 n)⟩) (bd_var ⟨1, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 1 < 2) (Nat.le_add_left 2 n)⟩))
+      (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) n⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) n⟩))
         (bd_ex (ϕ ↑ᶠᵇ' 1 # 2))))
       (bd_ex
         (bd_and
-          (bd_all (bd_imp (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 3) (Nat.le_add_left 3 n)⟩) (bd_var ⟨2, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 2 < 3) (Nat.le_add_left 3 n)⟩))
+          (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) n⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) n⟩))
             (bd_ex (bd_and
-              (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 4) (Nat.le_add_left 4 n)⟩) (bd_var ⟨2, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 2 < 4) (Nat.le_add_left 4 n)⟩))
+              (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) n⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 1) n⟩))
               (ϕ ↑ᶠᵇ' 2 # 2)))))
-          (bd_all (bd_imp (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 3) (Nat.le_add_left 3 n)⟩) (bd_var ⟨1, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 1 < 3) (Nat.le_add_left 3 n)⟩))
+          (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) n⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) n⟩))
             (bd_ex (bd_and
-              (mem' (bd_var ⟨0, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 0 < 4) (Nat.le_add_left 4 n)⟩) (bd_var ⟨3, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 3 < 4) (Nat.le_add_left 4 n)⟩))
-              (subst0_bounded_formula (ϕ ↑ᶠᵇ' 3 # 2) (bd_var ⟨1, Nat.lt_of_lt_of_le (of_decide_eq_true rfl : 1 < 4) (Nat.le_add_left 4 n)⟩))))))))
+              (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) n⟩) (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 0) n⟩))
+              (subst0_bounded_formula (ϕ ↑ᶠᵇ' 3 # 2) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) n⟩))))))))
 
 /-- Members of the union of a set are precisely members of its members. -/
 def axiom_of_union : sentence L_ZFC :=
   bd_all (bd_all
     (bd_biimp
-      (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (union' (bd_var ⟨1, of_decide_eq_true rfl⟩)))
+      (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (union' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩)))
       (bd_ex (bd_and
-        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-        (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))))))
+        (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) (nat_lit 0)⟩))
+        (mem' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩))))))
 
 /-- Members of a powerset are precisely subsets of its argument. -/
 def axiom_of_powerset : sentence L_ZFC :=
   bd_all (bd_all
     (bd_biimp
-      (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (Powerset (bd_var ⟨1, of_decide_eq_true rfl⟩)))
+      (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (Powerset (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩)))
       (bd_all (bd_imp
-        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-        (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))))))
+        (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩))
+        (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) (nat_lit 0)⟩))))))
 
 /-- The omega constant is the least limit ordinal, with the displayed infinity conditions. -/
 def axiom_of_infinity : sentence L_ZFC :=
@@ -563,42 +601,42 @@ def axiom_of_infinity : sentence L_ZFC :=
     (bd_and
       (bd_and
         (mem' ∅' ω')
-        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) ω')
+        (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 0) (nat_lit 0)⟩) ω')
           (bd_ex (bd_and
-            (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) ω')
-            (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
-      (bd_ex (bd_and Ord_f (bd_equal ω' (bd_var ⟨0, of_decide_eq_true rfl⟩)))))
+            (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) ω')
+            (mem' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩)))))))
+      (bd_ex (bd_and Ord_f (bd_equal ω' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 0) (nat_lit 0)⟩)))))
     (bd_all (bd_imp Ord_f (bd_imp
-      (bd_and (mem' ∅' (bd_var ⟨0, of_decide_eq_true rfl⟩))
-        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+      (bd_and (mem' ∅' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 0) (nat_lit 0)⟩))
+        (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))
           (bd_ex (bd_and
-            (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-            (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
-      (subset'' ω' (bd_var ⟨0, of_decide_eq_true rfl⟩)))))
+            (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) (nat_lit 0)⟩))
+            (mem' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩)))))))
+      (subset'' ω' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 0) (nat_lit 0)⟩)))))
 
 /-- Every nonempty set has a membership-minimal element. -/
 def axiom_of_regularity : sentence L_ZFC :=
-  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
-    (bd_ex (bd_and (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-      (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-        (bd_not (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))))))))
+  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 0) (nat_lit 0)⟩) ∅'))
+    (bd_ex (bd_and (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))
+      (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) (nat_lit 0)⟩))
+        (bd_not (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩))))))))
 
 /-- A nonempty family closed under unions of inclusion chains has an inclusion-maximal member. -/
 def zorns_lemma : sentence L_ZFC :=
-  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, of_decide_eq_true rfl⟩) ∅'))
+  bd_all (bd_imp (bd_not (bd_equal (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 0) (nat_lit 0)⟩) ∅'))
     (bd_imp
       (bd_all (bd_imp
-        (bd_and (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
+        (bd_and (subset'' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))
           (bd_all (bd_all (bd_imp
-            (bd_and (mem' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-                    (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩)))
-            (bd_or (subset'' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))
-                   (subset'' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)))))))
-        (mem' (union' (bd_var ⟨0, of_decide_eq_true rfl⟩)) (bd_var ⟨1, of_decide_eq_true rfl⟩))))
-      (bd_ex (bd_and (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩))
-        (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-          (bd_imp (subset'' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩))
-            (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))))
+            (bd_and (mem' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 1) (nat_lit 0)⟩))
+                    (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 1) (nat_lit 0)⟩)))
+            (bd_or (subset'' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩))
+                   (subset'' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) (nat_lit 0)⟩)))))))
+        (mem' (union' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩)) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))))
+      (bd_ex (bd_and (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 0) (nat_lit 0)⟩))
+        (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 0) (nat_lit 0)⟩))
+          (bd_imp (subset'' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩))
+            (bd_equal (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 2) (nat_lit 0)⟩)))))))))
 
 /-- The eight displayed set-theoretic sentences and every instance of strong collection. -/
 def ZFC : SentTheory L_ZFC :=
@@ -611,33 +649,33 @@ def is_func_f : bounded_formula L_ZFC 1 :=
   bd_all (bd_all (bd_all (bd_all
     (bd_imp
       (bd_and
-        (mem' (pair' (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)) (bd_var ⟨4, of_decide_eq_true rfl⟩))
-        (mem' (pair' (bd_var ⟨2, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)) (bd_var ⟨4, of_decide_eq_true rfl⟩)))
-      (bd_imp (bd_equal (bd_var ⟨3, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
-              (bd_equal (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)))))))
+        (mem' (pair' (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 3) (nat_lit 0)⟩)) (bd_var ⟨4, BoundProof.index_lt (nat_lit 4) (nat_lit 0) (nat_lit 0)⟩))
+        (mem' (pair' (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 4) (nat_lit 0)⟩)) (bd_var ⟨4, BoundProof.index_lt (nat_lit 4) (nat_lit 0) (nat_lit 0)⟩)))
+      (bd_imp (bd_equal (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 1) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 2) (nat_lit 0)⟩))
+              (bd_equal (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 3) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 4) (nat_lit 0)⟩)))))))
 
 /-- With free variables `[f,y,x]`, the relation is total from `y` to `x`. -/
 def is_total'_f₂ : bounded_formula L_ZFC 3 :=
-  bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨2, of_decide_eq_true rfl⟩))
+  bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 3) (nat_lit 0)⟩) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 1) (nat_lit 0)⟩))
     (bd_ex (bd_and
-      (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨4, of_decide_eq_true rfl⟩))
-      (mem' (pair' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨0, of_decide_eq_true rfl⟩)) (bd_var ⟨2, of_decide_eq_true rfl⟩)))))
+      (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 4) (nat_lit 0)⟩) (bd_var ⟨4, BoundProof.index_lt (nat_lit 4) (nat_lit 0) (nat_lit 0)⟩))
+      (mem' (pair' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 3) (nat_lit 0)⟩) (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 4) (nat_lit 0)⟩)) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 2) (nat_lit 0)⟩)))))
 
 /-- With free variables `[f,y,x]`, the relation is a total function from `y` to `x`. -/
 def is_func'_f₂ : bounded_formula L_ZFC 3 :=
-  bd_and (is_func_f.cast (of_decide_eq_true rfl)) is_total'_f₂
+  bd_and (is_func_f.cast (Nat.le_add_right (nat_lit 1) (nat_lit 2))) is_total'_f₂
 
 /-- With free variables `[y,x]`, some subset of `x` admits a surjection onto `y`. -/
 def at_most_f : bounded_formula L_ZFC 2 :=
   bd_ex (bd_ex
     (bd_and
       (bd_and
-        (subset'' (bd_var ⟨1, of_decide_eq_true rfl⟩) (bd_var ⟨3, of_decide_eq_true rfl⟩))
-        (is_func'_f₂.cast (of_decide_eq_true rfl)))
-      (bd_all (bd_imp (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨3, of_decide_eq_true rfl⟩))
+        (subset'' (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 2) (nat_lit 0)⟩) (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 0) (nat_lit 0)⟩))
+        (is_func'_f₂.cast (Nat.le_add_right (nat_lit 3) (nat_lit 1))))
+      (bd_all (bd_imp (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 4) (nat_lit 0)⟩) (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 1) (nat_lit 0)⟩))
         (bd_ex (bd_and
-          (mem' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨3, of_decide_eq_true rfl⟩))
-          (mem' (pair' (bd_var ⟨0, of_decide_eq_true rfl⟩) (bd_var ⟨1, of_decide_eq_true rfl⟩)) (bd_var ⟨2, of_decide_eq_true rfl⟩))))))))
+          (mem' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 5) (nat_lit 0)⟩) (bd_var ⟨3, BoundProof.index_lt (nat_lit 3) (nat_lit 2) (nat_lit 0)⟩))
+          (mem' (pair' (bd_var ⟨0, BoundProof.index_lt (nat_lit 0) (nat_lit 5) (nat_lit 0)⟩) (bd_var ⟨1, BoundProof.index_lt (nat_lit 1) (nat_lit 4) (nat_lit 0)⟩)) (bd_var ⟨2, BoundProof.index_lt (nat_lit 2) (nat_lit 3) (nat_lit 0)⟩))))))))
 
 /-- Every ordinal is a surjective image of a subset of omega, or its subset surjects onto the powerset of omega. -/
 def CH_f : sentence L_ZFC :=
